@@ -1,3 +1,4 @@
+#用于批量把labelme处理后的json转换为mask
 import argparse
 import base64
 import json
