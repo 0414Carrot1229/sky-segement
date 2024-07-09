@@ -1,0 +1,45 @@
+# -*- coding: utf-8 -*-
+import os
+import numpy as np
+from PIL import Image
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+
+# 加载模型
+model = load_model('scene_recognition_model.keras')
+
+# 测试集文件夹路径
+test_folder_path = '/home/hubo/test'
+
+# 定义图片的大小
+IMAGE_SIZE = (128, 128)
+
+# 函数：加载和预处理单个图像
+def load_and_preprocess_image(img_path):
+    img = Image.open(img_path)
+    img = img.resize(IMAGE_SIZE)
+    img = np.array(img)
+    img = preprocess_input(img)
+    img = np.expand_dims(img, axis=0)  # Add batch dimension
+    return img
+
+# 函数：获取文件夹下所有图片路径
+def get_image_paths(folder_path):
+    return [os.path.join(folder_path, fname) for fname in os.listdir(folder_path) if fname.lower().endswith(('.png', '.jpg', '.jpeg'))]
+
+# 获取测试集图片路径列表
+test_image_paths = get_image_paths(test_folder_path)
+
+# 函数：预测并打印结果
+def predict_and_print_results(image_paths, model):
+    class_names = ['daytime', 'night', 'star', 'sun_moon']  # 这里需要和您实际的类别名对应
+    for img_path in image_paths:
+        img = load_and_preprocess_image(img_path)
+        predictions = model.predict(img)
+        predicted_class = np.argmax(predictions[0])
+        predicted_class_name = class_names[predicted_class]
+        print(f"File: {os.path.basename(img_path)}, Predicted: {predicted_class_name}")
+
+# 预测并打印测试集的结果
+predict_and_print_results(test_image_paths, model)
