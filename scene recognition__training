@@ -30,6 +30,8 @@ def load_images_from_folder(folder_path, label):
         if filename.endswith('.jpg') or filename.endswith('.jpeg') or filename.endswith('.png'):
             img_path = os.path.join(folder_path, filename)
             img = Image.open(img_path)
+            # 确保所有图像都是RGB格式
+            img = img.convert('RGB')
             img = img.resize(IMAGE_SIZE)
             img = np.array(img)
             img = preprocess_input(img)
@@ -90,7 +92,7 @@ model.compile(optimizer=Adam(), loss='categorical_crossentropy', metrics=['accur
 # 训练模型
 history = model.fit(
     train_dataset,
-    epochs=100,
+    epochs=200,
     validation_data=val_dataset,  # 添加验证数据集
     verbose=1  # 打印每个 epoch 的损失
 )
