@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
+import itertools
+import time
 import os
 import numpy as np
 from PIL import Image
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # 加载模型
 model = load_model('scene_recognition_model.keras')
@@ -31,15 +38,98 @@ def get_image_paths(folder_path):
 # 获取测试集图片路径列表
 test_image_paths = get_image_paths(test_folder_path)
 
-# 函数：预测并打印结果
 def predict_and_print_results(image_paths, model):
-    class_names = ['daytime', 'night', 'star', 'sun_moon']  # 这里需要和您实际的类别名对应
+    class_names = ['daytime', 'night', 'star', 'sun_moon']
+    correct_predictions = 0
+    total_predictions = len(image_paths)
+    
+    sorted_class_names = sorted(class_names, key=len, reverse=True)
+    
+    y_true = []
+    y_pred = []
+    incorrect_predictions = []
+    
+    start_time = time.time()  # 添加计时开始点
+    
     for img_path in image_paths:
         img = load_and_preprocess_image(img_path)
-        predictions = model.predict(img)
+        predictions = model.predict(img, verbose=0)
         predicted_class = np.argmax(predictions[0])
         predicted_class_name = class_names[predicted_class]
-        print(f"File: {os.path.basename(img_path)}, Predicted: {predicted_class_name}")
+        
+        filename = os.path.basename(img_path)
+        actual_class_name = next((name for name in sorted_class_names if filename.startswith(name)), None)
+        
+        if actual_class_name is None:
+            raise ValueError(f"Cannot determine the category of file: {filename}. Ensure the file name starts with a category name.")
+        
+        if predicted_class_name == actual_class_name:
+            correct_predictions += 1
+        else:
+            incorrect_predictions.append((filename, predicted_class_name, actual_class_name))
+        
+        y_true.append(class_names.index(actual_class_name))
+        y_pred.append(predicted_class)
+        
+        print(f"File: {filename}, Predicted: {predicted_class_name}, Actual: {actual_class_name}")
+    
+    accuracy = correct_predictions / total_predictions
+    print(f"Total Correct Predictions: {correct_predictions}")
+    print(f"Total Incorrect Predictions: {total_predictions - correct_predictions}")
+    print(f"Prediction Accuracy: {accuracy * 100:.2f}%")
+    
+    if incorrect_predictions:
+        print("\nIncorrectly Classified Images:")
+        for filename, predicted, actual in incorrect_predictions:
+            print(f"File: {filename}, Predicted: {predicted}, Actual: {actual}")
+    
+    # 计算混淆矩阵
+    cm = confusion_matrix(y_true, y_pred)
+    
+    # 绘制混淆矩阵图
+    plot_confusion_matrix(cm, class_names)
+    
+    end_time = time.time()  # 添加计时结束点
+    
+    elapsed_time = end_time - start_time
+    average_time_per_image = elapsed_time / total_predictions
+    print(f"\nAverage time per image: {average_time_per_image:.4f} seconds")
+    
+# 绘制混淆矩阵函数
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.savefig('confusion_matrix.png')
 
 # 预测并打印测试集的结果
 predict_and_print_results(test_image_paths, model)
